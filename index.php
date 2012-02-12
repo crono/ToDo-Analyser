@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <!-- used to force HTML5 in the browsers -->
 <!-- vim: set ts=4 et nu :vim -->
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>ToDo List Auswertung</title>
+</head>
+<body>
+	<h1>Das hier ist die Auswertung</h1>
+
 <?php
 
 
@@ -20,6 +28,7 @@ define ('UTF8_BOM'               , chr(0xEF) . chr(0xBB) . chr(0xBF));
 class Task implements arrayaccess {
 
         private $subtasks = array();
+        private $attributes = array();
         private $parent;
 
         function __construct($parent) {
@@ -56,10 +65,22 @@ class Task implements arrayaccess {
             return isset($this->subtasks[$offset]) ? $this->subtasks[$offset] : null;
         }
 
+    public function asxml() {
+        $xmlrep='<TASK ';
+        foreach ($this->attributes as $key => $value ) {
+            if ($key=='COMMENTS') $value=str_replace('\n',"\n",$value);
+#            if ($key=='COMMENTS') $value='blub';
+            $xmlrep.=$key.'="'.htmlspecialchars($value).'" ';
+        }
+        $xmlrep.=">\n";
+        foreach ($this->subtasks as $task) {
+            $xmlrep.=$task->asxml();
+        }
+        $xmlrep.="</TASK>\n";
+        return $xmlrep;
+    }
 
 }
-
-
 
 class ToDoList implements arrayaccess {
     private $parser = NULL;
@@ -93,26 +114,65 @@ class ToDoList implements arrayaccess {
         xml_set_character_data_handler($this->parser, "cdata");
     }
 
-    function xml() {
+    function asxml() {
+        $xmlrep='<TODOLIST ';
+        foreach ($this->attributes as $key => $value ) {
+#            if ($key=='FILENAME') $value=basename($filename);
+            if ($key=='CHECKEDOUTTO') $value='';
+            if ($key=='FILEVERSION') $value++;
+            $xmlrep.= $key.'="'.$value.'" ';
+        }
+        $xmlrep.=">\n";
 
+        foreach ($this->tasklist as $task) {
+            $xmlrep.= $task->asxml();
+        }
+
+        $xmlrep.="</TODOLIST>";
+
+        return $xmlrep;
+    }
+
+    function replace_comments ($matches) {
+                $comment=$matches[1];
+                $comment=str_replace(array("\r\n", "\n", "\r"),'\n',$comment);
+                return 'COMMENTS="'.$comment.'"';
     }
 
     public function readfile($filename) {
+        # Load File and change encoding
         $data=file_get_contents($filename);
+        $data=mb_convert_encoding($data,'UTF-8','UTF-16LE');
+        # replace multiline comments to single line with \n characters
+        $data=preg_replace_callback('/COMMENTS\="(.*?)"/s',array($this,'replace_comments'),$data);
+        
+        # Start building the task-tree with the root-node
         $this->taskpointer=$this;
+        # Start the parser
         xml_parse($this->parser, $data);
-
-        print_r($this->attributes);
-        var_dump($this->tasklist);
     }
 
+    public function writefile($filename) {
+#        print_r($this->attributes);
+#        var_dump($this->tasklist);
+        $fcont='<?xml version="1.0" encoding="windows-1252" ?>'."\n";
+        $fcont.=$this->asxml();
+        $file=fopen($filename,'w');
+        fwrite($file,chr(0xFF) . chr(0xFE).mb_convert_encoding($fcont,'UTF-16LE','UTF-8'));
+#        fwrite($file,mb_convert_encoding(,'UTF-8','UTF-16LE');
+        fclose($file);
+    }
+
+    public function assign($attributes) {
+       $this->attributes=$attributes;
+    }
 
     /** XML-Functions **/
 
     function tag_open($parser, $tag, $attributes) {
         switch ($tag) {
             case 'TODOLIST':
-                $this->attributes=$attributes;
+                $this->assign($attributes);
                 break;
             case 'TASK':
                 $task=new Task($this->taskpointer);
@@ -183,26 +243,25 @@ class ToDoList implements arrayaccess {
 
 $tdl = new ToDoList();
 $tdl->readfile('test/tasks.tdl');
+$tdl->writefile('test/new.tdl');
 
 echo "</PRE>";
 
 
 ?>
-<html>
-<head>
-	<title>ToDo List Auswertung</title>
-</head>
-<body>
-	<h1>Das hier ist die Auswertung</h1>
 <?php
 
 # print "Encoding: ".detect_utf_encoding('tasks.tdl')."\n";
 #print "Encoding: ".mb_detect_encoding($text,'auto')."\n";
 
-$text=file_get_contents('test/tasks.tdl');
+$data=file_get_contents('test/tasks.tdl');
+$data=mb_convert_encoding($data,'UTF-8','UTF-16LE');
+print $data;
 
+$data=file_get_contents('test/new.tdl');
+$data=mb_convert_encoding($data,'UTF-8','UTF-16LE');
+print $data;
 
-phpinfo();
 ?>
 </body>
 </html>
