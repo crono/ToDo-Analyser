@@ -19,7 +19,7 @@ define ('UTF8_BOM'               , chr(0xEF) . chr(0xBB) . chr(0xBF));
 #
 class Task implements arrayaccess {
 
-        private $container = array();
+        private $subtasks = array();
         private $parent;
 
         function __construct($parent) {
@@ -38,26 +38,28 @@ class Task implements arrayaccess {
 
         public function offsetSet($offset, $value) {
             if (is_null($offset)) {
-                $this->container[] = $value;
+                $this->subtasks[] = $value;
             } else {
-                $this->container[$offset] = $value;
+                $this->subtasks[$offset] = $value;
             }
         }
 
         public function offsetExists($offset) {
-            return isset($this->container[$offset]);
+            return isset($this->subtasks[$offset]);
         }
 
         public function offsetUnset($offset) {
-            unset($this->container[$offset]);
+            unset($this->subtasks[$offset]);
         }
 
         public function offsetGet($offset) {
-            return isset($this->container[$offset]) ? $this->container[$offset] : null;
+            return isset($this->subtasks[$offset]) ? $this->subtasks[$offset] : null;
         }
 
 
 }
+
+
 
 class ToDoList implements arrayaccess {
     private $parser = NULL;
@@ -87,7 +89,6 @@ class ToDoList implements arrayaccess {
     function __construct () {
         $this->parser = xml_parser_create();
         xml_set_object($this->parser, $this);
-        xml_parser_set_option($this->parser,XML_OPTION_SKIP_WHITE,0); 
         xml_set_element_handler($this->parser, "tag_open", "tag_close");
         xml_set_character_data_handler($this->parser, "cdata");
     }
@@ -181,7 +182,7 @@ class ToDoList implements arrayaccess {
 
 
 $tdl = new ToDoList();
-$tdl->readfile('tasks.tdl');
+$tdl->readfile('test/tasks.tdl');
 
 echo "</PRE>";
 
@@ -195,10 +196,11 @@ echo "</PRE>";
 	<h1>Das hier ist die Auswertung</h1>
 <?php
 
- print "Encoding: ".detect_utf_encoding('tasks.tdl')."\n";
- print "Encoding: ".mb_detect_encoding($text,'auto')."\n";
+# print "Encoding: ".detect_utf_encoding('tasks.tdl')."\n";
+#print "Encoding: ".mb_detect_encoding($text,'auto')."\n";
 
-echo 
+$text=file_get_contents('test/tasks.tdl');
+
 
 phpinfo();
 ?>
