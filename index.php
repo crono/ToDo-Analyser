@@ -23,34 +23,19 @@
 <thead bgcolor="#0000FF" style="color:#FFF;">
 <tr>
 <th>Projectnumber</th>
-<th>Task/Worker</th>
-<th>Total<th>
+<th>Task</th><th>Worker</th>
+<th>Total</th>
 <?php
     for($day=1;$day<=days_in_month($month,$year);$day++) {
             $start=mktime(0,0,0,$month,$day,$year);
             $end=mktime(23,59,59,$month,$day,$year);
-            print "<th>".strftime('%d.%m.%Y %H',$start).'-'.strftime('%d.%m.%Y %H',$end)."</th>\n";
+#            print "<th>".strftime('%d.%m.%Y %H',$start).'-'.strftime('%d.%m.%Y %H',$end)."</th>\n";
+            print sprintf("<th>%02d.%02d.%4d</th>",$day,$month,$year);
     }
 ?>
 </tr>
 </thead>
 <tbody>
-<tr>
-
-<td>K-01-91716022-4500</td>
-<td></td>
-</tr>
-
-<tr><td></td><td>task1</td></tr>
-<tr bgcolor="#88F"><td></td><td align="right">tdo366</td></tr>
-<tr bgcolor="#88f"><td></td><td align="right">tdo123</td></tr>
-<tr bgcolor="#88f"><td></td><td align="right">tdo456</td></tr>
-<tr><td></td><td>task2</td></tr>
-<tr><td></td><td>task3</td></tr>
-<tr><td></td><td>task4</td></tr>
-
-</tbody>
-</table>
 
 <?php
 
@@ -74,9 +59,157 @@ function detect_utf_encoding($text) {
     return mb_detect_encoding($text);
 }
 
-class MyTable {
+class MyCell {
+        private $name;
+        private $value;
+
+        public function __construct($name=null) {
+            $this->name=$name;
+        }
+    
+        public function add($value) {
+            $this->value+=$value;
+        }
+
+        public function value($value=null) {
+            if (isset($value)) {
+                $this->value=$value;
+            }
+            return $this->value;
+        }
+}
+
+class MyCollection {
+        private $name;
+
+        private $members;
+
+        public function __construct($name=null) {
+            $this->name=$name;
+        }
+}
+
+class MyRow extends MyCollection {
+
+}
+
+class MyColumn extends MyCollection{
+   
+}
+
+class MyTable implements Iterator,ArrayAccess {
 
     private $data = array();
+    private $position = 0;
+    private $value = 0;
+#    private $name = null;
+
+    public function __construct($name=null) {
+            $this->name=$name;
+    }
+
+    public function set($key) {
+            if (!isset($this->data[$key])) $this->data[$key]=new MyTable($key);
+            return $this->data[$key];
+    }
+
+    public function add($value) {
+            $this->value+=$value;
+    }
+
+    public function value($value=null) {
+        if (isset($value)) {
+            $this->value=$value;
+        }
+        return $this->value;
+    }
+
+    public function summary () {
+            $inter=$this->value;
+            foreach ($this->data as $name=>$child) {
+                    $inter+=$child->summary();
+            }
+            return $inter;
+    }
+
+    public function tsum() {
+            $sum=$this->summary();
+            $sec=$sum % 60;
+            $min=(($sum / 60) % 60);
+            $std=floor($sum / 3600);
+            return sprintf('%02d:%02d',$std,$min);
+    }
+
+    function count() {
+        if (count($this->data)==0) return 0;
+#        print $this->name.":"."\n";
+        $count=1;        
+        foreach($this->data as $name=>$child) {
+            $count+=$child->count();
+        }
+       return $count;
+    }
+
+    /** ITERATOR FUNCTIONS **/
+    function rewind() {
+        #print "Rewind\n";
+        $this->position = 0;
+    }
+
+    function current() {
+        #print "Current\n";
+        $keys=array_keys($this->data);
+        $name=$keys[$this->position];
+        return $this->data[$name];
+    }
+
+    function key() {
+        #print "Key\n";
+        return $this->position;
+    }
+
+    function next() {
+        #print "Next\n";
+        ++$this->position;
+    }
+
+    function valid() {
+        #print "Valid\n";
+        $keys=array_keys($this->data);
+        return isset($keys[$this->position]);
+    }
+
+
+    /** ARRAY ACCESS FUNCTIONS **/
+    public function offsetSet($offset, $value) {
+        if (is_null($offset)) {
+            $this->data[] = $value;
+        } else {
+            $this->data[$offset] = $value;
+        }
+    }
+
+    public function offsetExists($offset) {
+        return isset($this->data[$offset]);
+    }
+
+    public function offsetUnset($offset) {
+        unset($this->data[$offset]);
+    }
+
+    public function offsetGet($offset) {
+
+        if ($offset=='SUM') {
+                print "Calculating Summup of $this->name<br/>\n";
+                $tab=new Mytable();
+                foreach ($this->data as $child) {
+                        
+                }
+                return $tab;
+        }
+
+        return isset($this->data[$offset]) ? $this->data[$offset] : null;
+    }
 
 }
 
@@ -389,13 +522,13 @@ $tdl->readtodo('test/tasks.tdl');
 #
 $tdl->readtimetable('test/tasks_Log.csv');
 
-$fulltable=new MyTable();
+$grouptable=new MyTable();
 
 for($day=1;$day<=days_in_month($month,$year);$day++) {
     $start=mktime(0,0,0,$month,$day,$year);
     $end=mktime(23,59,59,$month,$day,$year);
     $time=$tdl->getsumtime($start,$end);
-    print "Calculation for $day.$month.$year\n";
+#    print "Calculation for $day.$month.$year\n";
 #   var_export($time);
     foreach ($time as $id=>$data) {
         $task=$tdl->find($data['id']);
@@ -406,17 +539,63 @@ for($day=1;$day<=days_in_month($month,$year);$day++) {
             /* Task is not present in the tasklist */
             print "NO TASK FOUND FOR $id  \n";
         }
+
         foreach($data['worker'] as $user=>$spent) {
-            print "$day.$month.$year:".$externalid.': ('.$id.') '.$data['title']."--$user:$spent--T:".$data['total']."\n";
 
-
+            $grouptable->set('SUMME')->set('SUMME')->set($user)->set("$day.$month.$year")->add($spent);
+            $grouptable->set('SUMME')->set('SUMME')->set("SUMME")->set("$day.$month.$year")->add($spent);
+            $grouptable->set($externalid)->set("($id) ".$data['title'])->set("SUMME")->set("$day.$month.$year")->add($spent);
+            $grouptable->set($externalid)->set("($id) ".$data['title'])->set($user)->set("$day.$month.$year")->add($spent);
+#            print "$day.$month.$year:".$externalid.': ('.$id.') '.$data['title']."--$user:$spent--T:".$data['total']."\n";
 
         }
-
 #       $fulltable->set($externalid,"$id "='sds';
     }
 }
-var_export ($fulltable);
+
+#var_export($grouptable);
+
+?>
+<?php
+$mdays=days_in_month($month,$year);
+foreach ($grouptable as $project) {
+
+        print '<tr><td rowspan="'.$project->count().'">'.$project->name."</td><td></td><td>".$project->tsum()."</td><td colspan='$mdays'></td></tr>\n";
+
+        foreach ($project as $task) {
+            print '<tr><td rowspan="'.$task->count().'">'.$task->name."</td><td>SUM</td><td>".$task->tsum()."</td><td colspan='$mdays'></td>\n";
+            $worker=$task['SUM'];
+                print "<tr><td align='right'>".$worker->name."</td><td>".$worker->tsum()."</td>\n";
+                for($day=1;$day<=$mdays;$day++) {
+                        if ($worker["$day.$month.$year"]) {
+                                print "<td>".$worker["$day.$month.$year"]->tsum()."</td>";
+                        } else {
+                                print "<td>00:00</td>";
+                        }
+                }
+ 
+            foreach ($task as $worker) {
+                if ($worker->name=='SUM') continue;
+                $sum=$task->summary();
+                print "<tr><td align='right'>".$worker->name."</td><td>".$worker->tsum()."</td>\n";
+                for($day=1;$day<=$mdays;$day++) {
+                        if ($worker["$day.$month.$year"]) {
+                                print "<td>".$worker["$day.$month.$year"]->tsum()."</td>";
+                        } else {
+                                print "<td>00:00</td>";
+                        }
+                }
+                print "</tr>\n";
+            }
+        }
+        #    var_export ($test);
+
+}
+?>
+</tbody>
+</table>
+<pre>
+<?php
 
 foreach ($tdl as $task) {
         print $task->attributes['ID'].' '.$task->attributes['TITLE']."\n";
