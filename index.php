@@ -1,4 +1,5 @@
 <?php
+    // vim: set ts=4 et nu shiftwidth=4 :vim
     // Work with UTF-8 everywhere
     mb_internal_encoding("UTF-8");
     header('Content-Type: text/html; charset=UTF-8');
@@ -9,7 +10,6 @@
 ?>
 <!DOCTYPE html>
 <!-- used to force HTML5 in the browsers -->
-<!-- vim: set ts=4 et nu :vim -->
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -59,42 +59,244 @@ function detect_utf_encoding($text) {
     return mb_detect_encoding($text);
 }
 
-class MyCell {
-        private $name;
-        private $value;
+interface Calculable {
+    public function calcvalue();
+}
 
-        public function __construct($name=null) {
-            $this->name=$name;
+class Interval implements Calculable {
+
+    protected $start=null; /* Open Interval */
+    protected $end=null;   /* Open Interval */
+
+    protected $intersect=null;
+
+    public function __construct($start,$end) {
+
+        /* If one of the values is null we need to handle open Intervals */
+        if (is_null($start) or is_null($end)) {
+            $this->start=$start;
+            $this->end=$end;
+        } else {
+            /* we guarantee that the start value is lower than the end value */
+            $this->start=($start<$end) ? $start : $end;
+            $this->end=($start<$end) ? $end : $start;
         }
+
+    }
+
+    public function duration() {
+        $a=$this->start;
+        $b=$this->end;
+        $i=null;
+        $j=null;
+        if (is_null($a) or is_null($b)) return 0;
+
+        if (isset($this->intersect)) {
+            $i=$this->intersect->start;
+            $j=$this->intersect->end;
+        }
+        /* If we should intersect with open-intervals, we use boundaries of current interval */
+        $i=isset($i) ? $i : $a;
+        $j=isset($j) ? $j : $b;
+
+        $start=($i>$a) ? $i : $a;
+        $end=($j<$b) ? $j : $b;
+
+        return ($end>$start) ? ($end-$start) : 0;
+
+    }
+
+    public function calcvalue() {
+        return $this->duration();
+    }
+
+    public function intersect(Interval $interval) {
+        $this->intersect=$interval;
+    }
+
+    public function nointersect() {
+        $this->intersect=null;
+    }
+
+}
+
+$i1=new Interval(10,20);
+$i2=new Interval(15,30);
+
+$i1->intersect($i2);
+print "<pre>";
+print "Dauer : "+$i1->duration();
+print_r($i2);
+
+#$spent=(int)$i1+(int)$i2;
+#print $spent." ".$i1()." ".$i2()." ".$i3()."\n";
+print "<pre/>";
+
+class Tupel implements ArrayAccess,Iterator {
+    private $fields;
+    private $position=0;
+
+    public function __construct() {
+    }
     
-        public function add($value) {
-            $this->value+=$value;
-        }
+    public function set($field,$value) {
+        $this->fields[$field]=$value;
+    }
 
-        public function value($value=null) {
-            if (isset($value)) {
-                $this->value=$value;
+    public function match(Tupel $comp) {
+        foreach($comp as $key=>$value) {
+            if ($this[$key]!=$value) {
+                return false;
             }
-            return $this->value;
         }
-}
+        return true;
+    }
 
-class MyCollection {
-        private $name;
-
-        private $members;
-
-        public function __construct($name=null) {
-            $this->name=$name;
+    /** ARRAY ACCESS FUNCTIONS **/
+    public function offsetSet($offset, $value) {
+        if (is_null($offset)) {
+            $this->fields[] = $value;
+        } else {
+            $this->fields[$offset] = $value;
         }
+    }
+
+    public function offsetExists($offset) {
+        return isset($this->fields[$offset]);
+    }
+
+    public function offsetUnset($offset) {
+        unset($this->fields[$offset]);
+    }
+
+    public function offsetGet($offset) {
+        return isset($this->fields[$offset]) ? $this->fields[$offset] : null;
+    }
+
+    /** ITERATOR FUNCTIONS **/
+    function rewind() {
+#        print "Rewind\n";
+        $this->position = 0;
+    }
+
+    function current() {
+ #       print "Current\n";
+        $keys=array_keys($this->fields);
+        $key=$keys[$this->position];
+        return $this->fields[$key] ? $this->fields[$key] : null;
+    }
+
+    function key() {
+#        print "Key\n";
+        $keys=array_keys($this->fields);
+        $key=$keys[$this->position];
+        return $key;
+    }
+
+    function next() {
+#        print "Next\n";
+        ++$this->position;
+    }
+
+    function valid() {
+        $keys=array_keys($this->fields);
+        return isset($keys[$this->position]);
+    }
+    
 }
 
-class MyRow extends MyCollection {
 
-}
+class TupelList implements Iterator,ArrayAccess,Countable {
 
-class MyColumn extends MyCollection{
-   
+    private $position = 0;
+    private $tupels = array();
+
+    public function __construct() {
+
+    }
+
+    public function filter($filter) {
+        $filtered=new TupelList();
+        foreach ($this->tupels as $tupel) {
+            if ($tupel->match($filter)) {
+                $filtered[]=$tupel;
+            }
+        }
+#        print_r($filtered);
+        return $filtered;
+    }
+
+    public function sum($field) {
+        $sum=0;
+        foreach ($this->tupels as $tupel) {
+            if ($tupel[$field] instanceof Calculable) {
+                $sum+=$tupel[$field]->calcvalue();
+            } else {
+                $sum+=$tupel[$field];
+            }
+        }
+        return $sum;
+    }
+
+    public function keys($field) {
+        $list=array();
+        foreach ($this->tupels as $tupel) {
+            $list[]=$tupel[$field];
+        }
+        return array_unique($list,SORT_STRING);
+    }
+
+    /** ARRAY ACCESS FUNCTIONS **/
+    public function offsetSet($offset, $tupel) {
+        if (is_null($offset)) {
+            $this->tupels[]=$tupel;
+        } else {
+            $this->tupels[$offset]=$tupel;
+        }
+    }
+
+    public function offsetExists($offset) {
+        return isset($this->tupels[$offset]);
+    }
+
+    public function offsetUnset($offset) {
+        unset($this->tupels[$offset]);
+    }
+
+    public function offsetGet($offset) {
+        return isset($this->tupels[$offset]) ? $this->tupels[$offset] : null;
+    }
+
+    /** ITERATOR FUNCTIONS **/
+    function rewind() {
+        #print "Rewind\n";
+        $this->position = 0;
+    }
+
+    function current() {
+        #print "Current\n";
+        return $this->tupels[$this->position];
+    }
+
+    function key() {
+        #print "Key\n";
+        return $this->position;
+    }
+
+    function next() {
+        #print "Next\n";
+        ++$this->position;
+    }
+
+    function valid() {
+        #print "Valid\n";
+        return isset($this->tupels[$this->position]);
+    }
+
+    /** COUNTABLE FUNCTIONS **/
+    public function count ( ) {
+        return count($this->tupels);
+    }
 }
 
 class MyTable implements Iterator,ArrayAccess {
@@ -293,7 +495,7 @@ class MyTree implements ArrayAccess,Iterator {
         if (array_key_exists($name, $this->attributes)) {
             return $this->attributes[$name];
         }
-
+        return null;
         $trace = debug_backtrace();
         trigger_error(
             'Undefined property via __get(): ' . $name .
@@ -350,7 +552,7 @@ class ToDoList extends MyTree {
     private $parser = NULL;
     private $taskpointer;
 
-    private $timetable;
+    public $timetable;
 
     private $person=NULL;
     private $allocatedby=NULL;
@@ -381,33 +583,6 @@ class ToDoList extends MyTree {
         return $xmlrep;
     }
 
-    public function getsumtime($starttime=null,$endtime=null,$who=null) {
-            $result=array();            
-            foreach ($this->timetable as $runid => $data) {
-                $title=$data['title'];
-                foreach ($data['time'] as $entry) {
-                    if (isset($who) and $entry['who']!=$who) continue;
-                    $start=$entry['start'];
-                    $end=$entry['end'];
-                    // Crop START and END-Time to the given limits (e.g. when do calculation > 1 day)
-                    if (isset($starttime) and $start<$starttime) $start=$starttime;
-                    if (isset($endtime) and $end>$endtime) $end=$endtime;
-                    if (($end-$start)<=0) continue;
-                    if (! isset($result[$runid])) $result[$runid]=array();
-                    $result[$runid]['title']=$title;
-                    $result[$runid]['id']=$runid;
-                    if (! isset($result[$runid]['worker'])) $result[$runid]['worker']=array();
-                    if (! isset($result[$runid]['total'])) $result[$runid]['total']=0;
-                    if (! isset($result[$runid]['worker'][$entry['who']])) $result[$runid]['worker'][$entry['who']]=0;
-                    $result["$runid"]['total']+=($end-$start);
-                    $result["$runid"]['worker'][$entry['who']]+=($end-$start);
-                    # print "$runid: ".$entry['who'].' '.$entry['start'].'-'.$entry['end']."\n";
-                }
-            }
-#           var_export($result); 
-            return $result;
-    }
-
     private function protect_multilines ($matches) {
                 $matches[2]=str_replace(array("\r\n", "\n", "\r"),array('\r\n','\n','\r'),$matches[2]);
                 return ' '.$matches[1].'="'.$matches[2].'"';
@@ -421,15 +596,20 @@ class ToDoList extends MyTree {
         foreach($data as &$Row) $Row = str_getcsv($Row, ";"); //parse the items in rows
         $header=array_shift($data);
 
-        $timetable=array();
+        $timetable=new TupelList();
         foreach ($data as $row) {
-                $id=$row[0];
+                $entry=new Tupel();
+                $entry['id']=$row[0];
                 $entry['who']=$row[3];
                 $entry['start']=strtotime($row[5]);
                 $entry['end']=strtotime($row[4]);
                 $entry['spent']=$entry['end']-$entry['start'];
-                $timetable[$id]['title']=$row[1];
-                $timetable[$id]['time'][]=$entry;
+                $entry['title']=$row[1];
+
+                $task=$this->find($row[0]);
+                $entry['externalid']=$task? $task->externalid : null;
+
+                $timetable[]=$entry;
         }
         $this->timetable=$timetable;
     }
@@ -448,7 +628,7 @@ class ToDoList extends MyTree {
 
     public function writetodo($filename) {
         # Create an XML-Header
-        $fcont='<?xml version="1.0" encoding="windows-1252" ?>'."\n";
+        $fcont='<?xml version="1.0" encoding="windows-1252" ? >'."\n";
         # Get XML-Representation of file
         $fcont.=$this->asxml();
         $file=fopen($filename,'w');
@@ -522,12 +702,13 @@ $tdl->readtodo('test/tasks.tdl');
 #
 $tdl->readtimetable('test/tasks_Log.csv');
 
+print_r ($tdl->timetable->keys('externalid'));
+
+/*
 $grouptable=new MyTable();
 
 for($day=1;$day<=days_in_month($month,$year);$day++) {
-    $start=mktime(0,0,0,$month,$day,$year);
-    $end=mktime(23,59,59,$month,$day,$year);
-    $time=$tdl->getsumtime($start,$end);
+    # $time=$tdl->getsumtime($start,$end);
 #    print "Calculation for $day.$month.$year\n";
 #   var_export($time);
     foreach ($time as $id=>$data) {
@@ -537,7 +718,7 @@ for($day=1;$day<=days_in_month($month,$year);$day++) {
             if (isset($task->externalid)) $externalid=$task->externalid;
         } else {
             /* Task is not present in the tasklist */
-            print "NO TASK FOUND FOR $id  \n";
+/*            print "NO TASK FOUND FOR $id  \n";
         }
 
         foreach($data['worker'] as $user=>$spent) {
@@ -552,17 +733,35 @@ for($day=1;$day<=days_in_month($month,$year);$day++) {
 #       $fulltable->set($externalid,"$id "='sds';
     }
 }
-
+ */
 #var_export($grouptable);
 
 ?>
 <?php
 $mdays=days_in_month($month,$year);
-foreach ($grouptable as $project) {
+foreach ($tdl->timetable->keys('externalid') as $projectno) {
 
-        print '<tr><td rowspan="'.$project->count().'">'.$project->name."</td><td></td><td>".$project->tsum()."</td><td colspan='$mdays'></td></tr>\n";
+    $filter=new Tupel();
+    $filter['externalid']=$projectno;
 
-        foreach ($project as $task) {
+    $tasks=$tdl->timetable->filter($filter);
+
+    print '<tr><td rowspan="">'.$projectno.' ('.count($tasks).') '."</td><td></td><td>".'SDSD'."</td>\n";
+
+    /*    print_r($tasks); */
+    for($day=1;$day<=$mdays;$day++) {
+        $start=mktime(0,0,0,$month,$day,$year);
+        $end=mktime(23,59,59,$month,$day,$year);
+
+        $day=$tasks->filter('sdsd');
+
+        print "<td>".$tasks->sum('spent')."</td>";
+    }
+
+    print "</tr>\n";
+
+
+/*        foreach ($project as $task) {
             print '<tr><td rowspan="'.$task->count().'">'.$task->name."</td><td>SUM</td><td>".$task->tsum()."</td><td colspan='$mdays'></td>\n";
             $worker=$task['SUM'];
                 print "<tr><td align='right'>".$worker->name."</td><td>".$worker->tsum()."</td>\n";
@@ -589,7 +788,7 @@ foreach ($grouptable as $project) {
             }
         }
         #    var_export ($test);
-
+ */
 }
 ?>
 </tbody>
