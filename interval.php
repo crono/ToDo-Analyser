@@ -6,30 +6,30 @@
 $i1=new Interval(10,null);
 $i2=new Interval(5,30);
 $i3=new Interval(null,null);
+$i4=new Interval(null,20);
+$i5=new Interval(null,1);
 
-$i1->intersect($i3);
-$i2->intersect($i3);
+$r1=$i1->intersect($i3);
+$r2=$i2->intersect($i3);
+$r3=$i4->intersect($i3);
+$r4=$i5->intersect($i3);
+#$i2->intersect(array(10,20));
 
-print_r($i1);
-print_r($i2);
-print_r($i3);
-
-print "Dauer: ".$i1->duration();
-print "Dauer: ".$i1->duration().' '.$i1->start.' '.$i1->end.' '.$i1->sectstart.' '.$i1->sectend;
-
-$i3->set(8,15);
-print_r($i1);
-print_r($i2);
-print_r($i3);
-
-print "Dauer: ".$i1->duration().' '.$i1->start.' '.$i1->end.' '.$i1->sectstart.' '.$i1->sectend;
+$i3->set(2,15);
+$r1=$i1->intersect($i3);
+$r2=$i2->intersect($i3);
+$r3=$i3->intersect($i3);
+if ( $r4=$i4->intersect($i3)) {
+    print "Hurra! $r4\n";
+};
+if (! $r5=$i5->intersect($i3)) {
+    print "Hurra! $r5\n";
+};
 
 class Interval {
 
     protected $start=null; /* Open Interval */
     protected $end=null;   /* Open Interval */
-
-    protected $intersect=null;
 
     public function __construct($start,$end) {
         $this->set($start,$end);
@@ -50,79 +50,53 @@ class Interval {
     public function duration() {
         $a=$this->start;
         $b=$this->end;
-        $i=null;
-        $j=null;
-        if (is_null($a) or is_null($b)) return 0;
 
-        if (isset($this->intersect)) {
-            $i=$this->intersect->start;
-            $j=$this->intersect->end;
-        }
-        /* If we should intersect with open-intervals, we use boundaries of current interval */
-        $i=isset($i) ? $i : $a;
-        $j=isset($j) ? $j : $b;
+        if (is_null($a) or is_null($b)) return null;    // We don't know the size of the interval since it is infinite */
 
-        $start=($i>$a) ? $i : $a;
-        $end=($j<$b) ? $j : $b;
-
-        return ($end>$start) ? ($end-$start) : 0;
+        return ($b>$a) ? ($b-$a) : null; // If end is smaller than start there is an error in the interval 
     }
 
     public function intersect(Interval $interval) {
-        $this->intersect=$interval;
-    }
+        # print "Start ".$this->start.":".$this->end." intersect ".$interval->start.":".$interval->end;
 
-    public function nointersect() {
-        $this->intersect=null;
-    }
+        $a = $this->start;
+        $b = $this->end;
 
-    public function sectstart() {
-        $a=$this->start;
-        $b=$this->end;
-        $i=null;
-        $j=null;
+        $c = $interval->start;
+        $d = $interval->end;
 
-        if (isset($this->intersect)) {
-            $i=$this->intersect->start;
-            $j=$this->intersect->end;
+        $start=$a;
+        $end=$b;
+
+        if (is_null($a)) {
+            $start=$c;
+        } elseif (isset($c)) {
+            $start=($a>$c) ? $a : $c;
         }
 
-        /* If we should intersect with open-intervals, we use boundaries of current interval */
-        $i=isset($i) ? $i : $a;
-        $j=isset($j) ? $j : $b;
-
-        print "compare: $a:$b(sect)$i:$j\n";
-
-        
-
-    }
-
-    public function sectend() {
-        $a=$this->start;
-        $b=$this->end;
-        $i=null;
-        $j=null;
-
-        if (isset($this->intersect)) {
-            $i=$this->intersect->start;
-            $j=$this->intersect->end;
+        if (is_null($b)) {
+            $end=$d;
+        } elseif (isset($d)) {
+            $end=($b<$d) ? $b : $d;
         }
 
-        /* If we should intersect with open-intervals, we use boundaries of current interval */
-        $i=isset($i) ? $i : $a;
-        $j=isset($j) ? $j : $b;
+        # print " = ".$start.":".$end."\n";
+        if (isset($start)and isset($end) and ($start>$end)) {
+            return null;
+        }
 
-        print "compare: $a:$b(sect)$i:$j\n";
+        return new Interval($start,$end);
     }
 
+    
     public function __get($name) {
-        print 'Get: '.$name."\n";
         if ($name=='start') return $this->start;
         if ($name=='end') return $this->end;
-        if ($name=='sectstart') return $this->sectstart();
-        if ($name=='sectend') return $this->sectend();
     }
 
+    public function __tostring() {
+        return $this->start.':'.$this->end;
+    }
 
 }
 
