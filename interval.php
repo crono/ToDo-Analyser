@@ -3,29 +3,6 @@
 // vim: set ts=4 et nu shiftwidth=4 :vim
 //
 
-$i1=new Interval(10,null);
-$i2=new Interval(5,30);
-$i3=new Interval(null,null);
-$i4=new Interval(null,20);
-$i5=new Interval(null,1);
-
-$r1=$i1->intersect($i3);
-$r2=$i2->intersect($i3);
-$r3=$i4->intersect($i3);
-$r4=$i5->intersect($i3);
-#$i2->intersect(array(10,20));
-
-$i3->set(2,15);
-$r1=$i1->intersect($i3);
-$r2=$i2->intersect($i3);
-$r3=$i3->intersect($i3);
-if ( $r4=$i4->intersect($i3)) {
-    print "Hurra! $r4\n";
-};
-if (! $r5=$i5->intersect($i3)) {
-    print "Hurra! $r5\n";
-};
-
 class Interval {
 
     protected $start=null; /* Open Interval */
@@ -98,6 +75,33 @@ class Interval {
         return $this->start.':'.$this->end;
     }
 
+}
+
+# Is only executed if startet as main php-script
+if (!debug_backtrace()) {
+
+    $i1=new Interval(10,null);
+    $i2=new Interval(5,30);
+    $i3=new Interval(null,null);
+    $i4=new Interval(null,20);
+    $i5=new Interval(null,1);
+
+    $r1=$i1->intersect($i3);
+    $r2=$i2->intersect($i3);
+    $r3=$i4->intersect($i3);
+    $r4=$i5->intersect($i3);
+    #$i2->intersect(array(10,20));
+
+    $i3->set(2,15);
+    $r1=$i1->intersect($i3);
+    $r2=$i2->intersect($i3);
+    $r3=$i3->intersect($i3);
+    if ( $r4=$i4->intersect($i3)) {
+        print "Hurra! $r4\n";
+    };
+    if (! $r5=$i5->intersect($i3)) {
+        print "Hurra! $r5\n";
+    };
 }
 
 ?>

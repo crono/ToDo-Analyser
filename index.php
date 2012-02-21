@@ -7,6 +7,9 @@
     // For which month should we render the table?
     $month=2;
     $year=2012;
+
+    include('interval.php');
+    include('utf.php');
 ?>
 <!DOCTYPE html>
 <!-- used to force HTML5 in the browsers -->
@@ -38,99 +41,6 @@
 <tbody>
 
 <?php
-
-// Unicode BOM is U+FEFF, but after encoded, it will look like this.
-define ('UTF32_BIG_ENDIAN_BOM'   , chr(0x00) . chr(0x00) . chr(0xFE) . chr(0xFF));
-define ('UTF32_LITTLE_ENDIAN_BOM', chr(0xFF) . chr(0xFE) . chr(0x00) . chr(0x00));
-define ('UTF16_BIG_ENDIAN_BOM'   , chr(0xFE) . chr(0xFF));
-define ('UTF16_LITTLE_ENDIAN_BOM', chr(0xFF) . chr(0xFE));
-define ('UTF8_BOM'               , chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-// This function tries to detect the encoding first by reading the BOM. If this fails we fallback to the build in mb_detect_enconding
-function detect_utf_encoding($text) {
-    $first2 = substr($text, 0, 2);
-    $first3 = substr($text, 0, 3);
-    $first4 = substr($text, 0, 3);
-    if ($first3 == UTF8_BOM) return 'UTF-8';
-    elseif ($first4 == UTF32_BIG_ENDIAN_BOM) return 'UTF-32BE';
-    elseif ($first4 == UTF32_LITTLE_ENDIAN_BOM) return 'UTF-32LE';
-    elseif ($first2 == UTF16_BIG_ENDIAN_BOM) return 'UTF-16BE';
-    elseif ($first2 == UTF16_LITTLE_ENDIAN_BOM) return 'UTF-16LE';
-    return mb_detect_encoding($text);
-}
-
-interface Calculable {
-    public function calcvalue();
-}
-
-class Interval implements Calculable {
-
-    protected $start=null; /* Open Interval */
-    protected $end=null;   /* Open Interval */
-
-    protected $intersect=null;
-
-    public function __construct($start,$end) {
-
-        /* If one of the values is null we need to handle open Intervals */
-        if (is_null($start) or is_null($end)) {
-            $this->start=$start;
-            $this->end=$end;
-        } else {
-            /* we guarantee that the start value is lower than the end value */
-            $this->start=($start<$end) ? $start : $end;
-            $this->end=($start<$end) ? $end : $start;
-        }
-
-    }
-
-    public function duration() {
-        $a=$this->start;
-        $b=$this->end;
-        $i=null;
-        $j=null;
-        if (is_null($a) or is_null($b)) return 0;
-
-        if (isset($this->intersect)) {
-            $i=$this->intersect->start;
-            $j=$this->intersect->end;
-        }
-        /* If we should intersect with open-intervals, we use boundaries of current interval */
-        $i=isset($i) ? $i : $a;
-        $j=isset($j) ? $j : $b;
-
-        $start=($i>$a) ? $i : $a;
-        $end=($j<$b) ? $j : $b;
-
-        return ($end>$start) ? ($end-$start) : 0;
-
-    }
-
-    public function calcvalue() {
-        return $this->duration();
-    }
-
-    public function intersect(Interval $interval) {
-        $this->intersect=$interval;
-    }
-
-    public function nointersect() {
-        $this->intersect=null;
-    }
-
-}
-
-$i1=new Interval(10,20);
-$i2=new Interval(15,30);
-
-$i1->intersect($i2);
-print "<pre>";
-print "Dauer : "+$i1->duration();
-print_r($i2);
-
-#$spent=(int)$i1+(int)$i2;
-#print $spent." ".$i1()." ".$i2()." ".$i3()."\n";
-print "<pre/>";
 
 class Tupel implements ArrayAccess,Iterator {
     private $fields;
