@@ -3,7 +3,7 @@
 // vim: set ts=4 et nu shiftwidth=4 :vim
 //
 
-class Interval {
+class Interval implements Calculable, Comparable{
 
     protected $start=null; /* Open Interval */
     protected $end=null;   /* Open Interval */
@@ -22,6 +22,12 @@ class Interval {
             $this->start=($start<$end) ? $start : $end;
             $this->end=($start<$end) ? $end : $start;
         }
+    }
+
+    public function value() {
+        $dur=$this->duration();
+        if (is_null($dur)) return 0;
+        return $dur;
     }
 
     public function duration() {
@@ -75,6 +81,13 @@ class Interval {
         return $this->start.':'.$this->end;
     }
 
+    public function compare(self $compare) {
+        if ($this->intersect($compare)) {
+            return true;
+        }
+        return false;
+    }
+
 }
 
 # Is only executed if startet as main php-script
@@ -101,7 +114,8 @@ if (!debug_backtrace()) {
     };
     if (! $r5=$i5->intersect($i3)) {
         print "Hurra! $r5\n";
-    };
+    }
+
 }
 
 ?>

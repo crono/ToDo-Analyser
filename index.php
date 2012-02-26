@@ -8,8 +8,9 @@
     $month=2;
     $year=2012;
 
-    include('interval.php');
-    include('utf.php');
+    include_once('math.php');
+    include_once('interval.php');
+    include_once('utf.php');
 ?>
 <!DOCTYPE html>
 <!-- used to force HTML5 in the browsers -->
@@ -29,11 +30,12 @@
 <th>Task</th><th>Worker</th>
 <th>Total</th>
 <?php
-    for($day=1;$day<=days_in_month($month,$year);$day++) {
+    print "$month,$year -> ".days_in_month($month,$year);
+    for($day=0;$day<=days_in_month($month,$year);$day++) {
             $start=mktime(0,0,0,$month,$day,$year);
             $end=mktime(23,59,59,$month,$day,$year);
 #            print "<th>".strftime('%d.%m.%Y %H',$start).'-'.strftime('%d.%m.%Y %H',$end)."</th>\n";
-            print sprintf("<th>%02d.%02d.%4d</th>",$day,$month,$year);
+            print sprintf("<th>%02d %02d.%02d.%4d</th>",$day,$day,$month,$year);
     }
 ?>
 </tr>
@@ -55,7 +57,10 @@ class Tupel implements ArrayAccess,Iterator {
 
     public function match(Tupel $comp) {
         foreach($comp as $key=>$value) {
-            if ($this[$key]!=$value) {
+            if ($value instanceof Comparable) {
+                if ($this[$key]->compare($value)) return true;
+                return false;
+            } else if ($this[$key]!=$value) {
                 return false;
             }
         }
@@ -125,9 +130,10 @@ class TupelList implements Iterator,ArrayAccess,Countable {
 
     }
 
-    public function filter($filter) {
+    public function filter(Tupel $filter) {
         $filtered=new TupelList();
         foreach ($this->tupels as $tupel) {
+            if (!($tupel instanceof Tupel)) print $filter;
             if ($tupel->match($filter)) {
                 $filtered[]=$tupel;
             }
@@ -513,6 +519,7 @@ class ToDoList extends MyTree {
                 $entry['who']=$row[3];
                 $entry['start']=strtotime($row[5]);
                 $entry['end']=strtotime($row[4]);
+                $entry['time']=new Interval(strtotime($row[5]),strtotime($row[4]));
                 $entry['spent']=$entry['end']-$entry['start'];
                 $entry['title']=$row[1];
 
@@ -656,16 +663,29 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
 
     $tasks=$tdl->timetable->filter($filter);
 
-    print '<tr><td rowspan="">'.$projectno.' ('.count($tasks).') '."</td><td></td><td>".'SDSD'."</td>\n";
+    print '<tr><td rowspan="">'.$projectno.' ('.count($tasks).') '."</td><td>&nbsp;</td><td>".'ALL'."</td><td>&nbsp;</td>\n";
 
     /*    print_r($tasks); */
     for($day=1;$day<=$mdays;$day++) {
-        $start=mktime(0,0,0,$month,$day,$year);
-        $end=mktime(23,59,59,$month,$day,$year);
+        $filter=new Tupel();
+        $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
 
-        $day=$tasks->filter('sdsd');
+        $res=$tasks->filter($filter);
 
-        print "<td>".$tasks->sum('spent')."</td>";
+        print "<td>".$res->sum('spent')."</td>";
+    }
+
+    foreach ($tasks->keys('id') as $taskid) {
+        print '</tr><tr><td>&nbsp;</td><td>'.$taskid.'</td><td>ALL</td><td>&nbsp;</td>';
+
+        $filter=new Tupel();
+        $filter['id']=$taskid;
+        for($day=1;$day<=$mdays;$day++) {
+            $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
+            $res=$tasks->filter($filter);
+            print "<td>".$res->sum('spent')."</td>";
+        }
+
     }
 
     print "</tr>\n";
@@ -714,116 +734,6 @@ foreach ($tdl as $task) {
 }
 echo "</PRE>";
 
-
-
-?>
-<?php
-
-# print "Encoding: ".detect_utf_encoding('tasks.tdl')."\n";
-#print "Encoding: ".mb_detect_encoding($text,'auto')."\n";
-
-#$data=file_get_contents('test/tasks.tdl');
-#$data=mb_convert_encoding($data,'UTF-8','UTF-16LE');
-#print $data;
-
-#$data=file_get_contents('test/new.tdl');
-#$data=mb_convert_encoding($data,'UTF-8','UTF-16LE');
-#print $data;
-
 ?>
 </body>
 </html>
-
-<?php
-
-# From: http://code.google.com/p/php-calendar/source/browse/trunk/php-calendar/includes/calendar.php
-function day_of_week_start()
-{
-        global $phpcid;
-
-        return get_config($phpcid, 'week_start');
-}
-
-// returns the number of days in the week before the 
-//  taking into account whether we start on sunday or monday
-function day_of_week($month, $day, $year)
-{
-        return day_of_week_ts(mktime(0, 0, 0, $month, $day, $year));
-}
-
-// returns the number of days in the week before the 
-//  taking into account whether we start on sunday or monday
-function day_of_week_ts($timestamp)
-{
-        $days = date('w', $timestamp);
-
-        return ($days + 7 - day_of_week_start()) % 7;
-}
-
-// returns the number of days in $month
-function days_in_month($month, $year)
-{
-        return date('t', mktime(0, 0, 0, $month, 1, $year));
-}
-
-//returns the number of weeks in $month
-function weeks_in_month($month, $year)
-{
-        $days = days_in_month($month, $year);
-
-        // days not in this month in the partial weeks
-        $days_before_month = day_of_week($month, 1, $year);
-        $days_after_month = 6 - day_of_week($month, $days, $year);
-
-        // add up the days in the month and the outliers in the partial weeks
-        // divide by 7 for the weeks in the month
-        return ($days_before_month + $days + $days_after_month) / 7;
-}
-
-// return the week number corresponding to the $day.
-function week_of_year($month, $day, $year)
-{
-        global $phpcid;
-
-        $timestamp = mktime(0, 0, 0, $month, $day, $year);
-
-        // week_start = 1 uses ISO 8601 and contains the Jan 4th,
-        //   Most other places the first week contains Jan 1st
-        //   There are a few outliers that start weeks on Monday and use
-        //   Jan 1st for the first week. We'll ignore them for now.
-        if(get_config($phpcid, 'week_start') == 1) {
-                $year_contains = 4;
-                // if the week is in December and contains Jan 4th, it's a week
-                // from next year
-                if($month == 12 && $day - 24 >= $year_contains) {
-                        $year++;
-                        $month = 1;
-                        $day -= 31;
-                }
-        } else {
-                $year_contains = 1;
-        }
-        
-        // $day is the first day of the week relative to the current month,
-        // so it can be negative. If it's in the previous year, we want to use
-        // that negative value, unless the week is also in the previous year,
-        // then we want to switch to using that year.
-        if($day < 1 && $month == 1 && $day > $year_contains - 7) {
-                $day_of_year = $day - 1;
-        } else {
-                $day_of_year = date('z', $timestamp);
-                $year = date('Y', $timestamp);
-        }
-
-        /* Days in the week before Jan 1. */
-        $days_before_year = day_of_week(1, $year_contains, $year);
-
-        // Days left in the week
-        $days_left = 8 - day_of_week_ts($timestamp) - $year_contains;
-
-        /* find the number of weeks by adding the days in the week before
-         * the start of the year, days up to $day, and the days left in
-         * this week, then divide by 7 */
-        return ($days_before_year + $day_of_year + $days_left) / 7;
-}
-?>
