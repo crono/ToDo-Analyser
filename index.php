@@ -9,7 +9,10 @@
     $year=2012;
 
     $prjnos=array(
+        '' => array('UNKNOWN','UNKNOWN'),
+        'K-01-91716066-A1SD' => array('Maintenance for QIP','Process Development'),
         'K-01-91716066-A1SE' => array('Maintenance for QIP','Process Development'),
+        'K-01-91716023' => array('IT for JOIN 2012',''),
         'K-01-91716023-8000' => array('IT for JOIN 2012','AD/System Infrastructure/ LEME'),
         'K-01-91716023-7000' => array('IT for JOIN 2012','AD/System Infrastructure/ OTHER'),
         'K-01-91716023-6000' => array('IT for JOIN 2012','AD/System Infrastructure/ SFPC'),
@@ -54,6 +57,7 @@
     include_once('math.php');
     include_once('interval.php');
     include_once('utf.php');
+
 ?>
 <!DOCTYPE html>
 <!-- used to force HTML5 in the browsers -->
@@ -222,6 +226,13 @@ class TupelList implements Iterator,ArrayAccess,Countable {
             $list[]=$tupel[$field];
         }
         return array_unique($list,SORT_STRING);
+    }
+
+    public function find($field,$value) {
+        foreach ($this->tupels as $tupel) {
+            if ($tupel[$field]==$value) return $tupel;
+        }
+        return null;
     }
 
     /** ARRAY ACCESS FUNCTIONS **/
@@ -725,14 +736,18 @@ for($day=1;$day<=days_in_month($month,$year);$day++) {
 <?php
 
 $mdays=days_in_month($month,$year);
+$monthfilter=new Tupel();
+$monthfilter['time']=new Interval(mktime(0,0,0,$month,1,$year),mktime(23,59,29,$month,$mdays,$year));
 
-print "<tr><td>SUM</td><td>&nbsp;</TD><td>&nbsp;</TD><td>&nbsp;</td>";
+$monthtasks=$tdl->timetable->filter($monthfilter);
+
+print "<tr><td>SUM ".sprintf('%02d.%04d',$month,$year)."</td><td>&nbsp;</TD><td>&nbsp;</TD><td>".sectostr($monthtasks->sum('spent'),false)."&nbsp;</td>";
 /*    print_r($tasks); */
 for($day=1;$day<=$mdays;$day++) {
     $filter=new Tupel();
     $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
 
-    $res=$tdl->timetable->filter($filter);
+    $res=$monthtasks->filter($filter);
     
     $dow=date('w',mktime(0,0,0,$month,$day,$year));
     $addclass='';
@@ -746,9 +761,9 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
     $filter=new Tupel();
     $filter['externalid']=$projectno;
 
-    $tasks=$tdl->timetable->filter($filter);
+    $tasks=$monthtasks->filter($filter);
 
-    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>&nbsp;</td><td>".'ALL'."</td><td>&nbsp;</td>\n";
+    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>".join(',',$prjnos[$projectno])."</td><td>".'ALL'."</td><td>".sectostr($tasks->sum('spent'),false)."</td>\n";
 
     /*    print_r($tasks); */
     for($day=1;$day<=$mdays;$day++) {
@@ -772,7 +787,7 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
         $filter['id']=$taskid;
         $res=$tasks->filter($filter);
         $taskname=$res[0]['title'];
-        print '</tr><tr><td>&nbsp;</td><td>'.$taskname.'</td><td>ALL</td><td>&nbsp;</td>';
+        print '</tr><tr><td>&nbsp;</td><td>'.$taskname.'</td><td>ALL</td><td>'.sectostr($res->sum('spent'),false).'</td>';
 
         for($day=1;$day<=$mdays;$day++) {
             $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
