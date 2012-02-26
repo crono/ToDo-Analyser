@@ -409,6 +409,7 @@ class ToDoList extends MyTree {
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>ToDo List Auswertung</title>
+    <script type="text/javascript" language="Javascript" src="./klapptabelle.js"></script>
 <style>
 table {
     font-size: small;
@@ -488,7 +489,7 @@ $tdl->readtimetable('data/'.$csvfile);
 
 ?>
 </PRE>
-<table>
+<table class="klapptabelle">
 <thead bgcolor="#0000FF" style="color:#FFF;">
 <tr>
 <th>Projectnumber</th>
@@ -546,7 +547,7 @@ foreach ($monthtasks->keys('externalid') as $projectno) {
 
     $tasks=$monthtasks->filter($filter);
 
-    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>".join(',',prefix_lookup($projectno,$prjnos))."</td><td>".'ALL'."</td><td>".sectostr($tasks->sum('spent'),$dmode,$dailytotal["$month.$year"])."</td>\n";
+    print '<tr class="main,projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>".join(',',prefix_lookup($projectno,$prjnos))."</td><td>".'ALL'."</td><td>".sectostr($tasks->sum('spent'),$dmode,$dailytotal["$month.$year"])."</td>\n";
 
     /*    print_r($tasks); */
     for($day=1;$day<=$mdays;$day++) {
@@ -613,5 +614,11 @@ foreach ($keys as $taskid) {
 ?>
 </table>
 </div>
+<script>
+KlappTabelle.marker = './pfeile.gif'; // <-- Wichtig
+
+KlappTabelle.init();
+</script>
+
 </body>
 </html>
