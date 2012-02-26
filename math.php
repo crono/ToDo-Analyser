@@ -10,14 +10,30 @@ interface Comparable {
 }
 
 
-function sectostr($duration,$incsec=true) {
+function sectostr($duration,$mode='HMS',$total=0) {
 
-    return sprintf('%02.2f',$duration/3600);
-    $hour=(int)($duration/3600);
-    $min=(int)(($duration % 3600) / 60);
-    $sec=(int)($duration % 60);
-    if ($incsec) return sprintf('%02d:%02d:%02d',$hour,$min,$sec);
-    return sprintf('%02d:%02d',$hour,$min);
+    if ($duration==0) return '' ;
+    if ($mode=='H,') {
+        return sprintf('%02.2f',$duration/3600);
+    } elseif ($mode=='P') {
+        if ($total==0) return $duration;
+        return sprintf('%0.1f',($duration/$total)*100).'%';
+    } elseif ($mode=='HM') {
+        $hour=(int)($duration/3600);
+        $min=(int)(($duration % 3600) / 60);
+        return sprintf('%02d:%02d',$hour,$min);
+    } elseif ($mode=='HMS') {
+        $hour=(int)($duration/3600);
+        $min=(int)(($duration % 3600) / 60);
+        $sec=(int)($duration % 60);
+        return sprintf('%02d:%02d:%02d',$hour,$min,$sec);
+    } elseif ($mode=='S') {
+        return $duration;
+    } elseif ($mode=='S:S') {
+        return "$duration:$total";
+    }
+    return '';
+
 }
 
 # From: http://code.google.com/p/php-calendar/source/browse/trunk/php-calendar/includes/calendar.php

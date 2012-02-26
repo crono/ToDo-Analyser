@@ -11,7 +11,7 @@ class TupelList implements Iterator,ArrayAccess,Countable {
 
     }
 
-    public function filter(Tupel $filter) {
+    public function filter(TupelFilter $filter) {
         $filtered=new TupelList();
         foreach ($this->tupels as $tupel) {
             if (!($tupel instanceof Tupel)) print $filter;

@@ -5,8 +5,9 @@
     header('Content-Type: text/html; charset=UTF-8');
 
     // For which month should we render the table?
-    $month=2;
-    $year=2012;
+    $month=isset($_GET['month']) ? (int)$_GET['month'] : 1;
+    $year=isset($_GET['year']) ? (int)$_GET['year'] : 2012;
+    $dmode=isset($_GET['mode']) ? $_GET['mode'] : 'HM';
 
     $prjnos=array(
         '' => array('UNKNOWN','UNKNOWN'),
@@ -59,6 +60,7 @@
     include_once('interval.php');
     include_once('utf.php');
     include_once('Tupel.php');
+    include_once('TupelFilter.php');
     include_once('TupelList.php');
 
 function prefix_lookup($key,$data) {
@@ -69,9 +71,6 @@ function prefix_lookup($key,$data) {
 
     return $data['----DEFAULT----'] ? $data['----DEFAULT----'] : '' ;
 }
-
-
-
 
 class MyTree implements ArrayAccess,Iterator {
 
@@ -194,6 +193,19 @@ class Task extends MyTree {
 
     function __construct($parent) {
         parent::__construct($parent);
+    }
+
+    public function parentchain($field='ID') {
+        # print "Get-Parent: ".$this->ID."\n";
+        if ($this->parent instanceof Task) {
+            # print "query parent\n";
+            $blub=$this->parent->parentchain($field);
+            $blub[]=$this->parent->$field;
+            return $blub;
+        } else {
+            # print "no parent\n";
+            return array();
+        }
     }
 
     public function asxml() {
@@ -378,9 +390,14 @@ table {
     background:#99F;
 }
 </style>
+<script>
+function viewinfo ($task) {
+    console.log("View Task: "+$task);
+}
+</script>
 </head>
 <body>
-	<h1>Das hier ist die Auswertung</h1>
+    <h1>Summary <?php print sprintf('%02d.%04d',$month,$year) ?></h1>
 
 <?php
 echo"<PRE>";
@@ -392,17 +409,16 @@ $tdl->readtodo('test/tasks.tdl');
 #
 $tdl->readtimetable('test/tasks_Log.csv');
 
-print_r ($tdl->timetable->keys('externalid'));
+# print_r ($tdl->timetable->keys('externalid'));
 ?>
 </PRE>
-<table border="1" size="-1">
+<table>
 <thead bgcolor="#0000FF" style="color:#FFF;">
 <tr>
 <th>Projectnumber</th>
 <th>Task</th><th>Worker</th>
 <th>Total</th>
 <?php
-    print "$month,$year -> ".days_in_month($month,$year);
     for($day=1;$day<=days_in_month($month,$year);$day++) {
             $start=mktime(0,0,0,$month,$day,$year);
             $end=mktime(23,59,59,$month,$day,$year);
@@ -421,15 +437,18 @@ print_r ($tdl->timetable->keys('externalid'));
 <?php
 
 $mdays=days_in_month($month,$year);
-$monthfilter=new Tupel();
+
+$monthfilter=new TupelFilter();
 $monthfilter['time']=new Interval(mktime(0,0,0,$month,1,$year),mktime(23,59,29,$month,$mdays,$year));
 
 $monthtasks=$tdl->timetable->filter($monthfilter);
 
-print "<tr><td>SUM ".sprintf('%02d.%04d',$month,$year)."</td><td>&nbsp;</TD><td>&nbsp;</TD><td>".sectostr($monthtasks->sum('spent'),false)."&nbsp;</td>";
+$dailytotal["$month.$year"]=$monthtasks->sum('spent');
+
+print "<tr><td>SUM ".sprintf('%02d.%04d',$month,$year)."</td><td>&nbsp;</TD><td>&nbsp;</TD><td>".sectostr($dailytotal["$month.$year"],'HM')."&nbsp;</td>";
 /*    print_r($tasks); */
 for($day=1;$day<=$mdays;$day++) {
-    $filter=new Tupel();
+    $filter=new TupelFilter();
     $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
 
     $res=$monthtasks->filter($filter);
@@ -437,22 +456,25 @@ for($day=1;$day<=$mdays;$day++) {
     $dow=date('w',mktime(0,0,0,$month,$day,$year));
     $addclass='';
     if (($dow==0) or ($dow==6)) $addclass='weekend';
-    print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
+
+    $dailytotal["$day.$month.$year"]=$res->sum('spent');
+
+    print "<td class='$addclass'>".sectostr($dailytotal["$day.$month.$year"],'HM')."</td>";
 }
 print "</tr>";
 
-foreach ($tdl->timetable->keys('externalid') as $projectno) {
+foreach ($monthtasks->keys('externalid') as $projectno) {
 
-    $filter=new Tupel();
+    $filter=new TupelFilter();
     $filter['externalid']=$projectno;
 
     $tasks=$monthtasks->filter($filter);
 
-    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>".join(',',prefix_lookup($projectno,$prjnos))."</td><td>".'ALL'."</td><td>".sectostr($tasks->sum('spent'),false)."</td>\n";
+    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>".join(',',prefix_lookup($projectno,$prjnos))."</td><td>".'ALL'."</td><td>".sectostr($tasks->sum('spent'),$dmode,$dailytotal["$month.$year"])."</td>\n";
 
     /*    print_r($tasks); */
     for($day=1;$day<=$mdays;$day++) {
-        $filter=new Tupel();
+        $filter=new TupelFilter();
         $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
 
         $res=$tasks->filter($filter);
@@ -460,7 +482,7 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
         $dow=date('w',mktime(0,0,0,$month,$day,$year));
         $addclass='';
         if (($dow==0) or ($dow==6)) $addclass='weekend';
-        print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
+        print "<td class='$addclass'>".sectostr($res->sum('spent'),$dmode,$dailytotal["$day.$month.$year"])."</td>";
     }
 
     foreach ($tasks->keys('id') as $taskid) {
@@ -468,11 +490,12 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
 #        $taskname=$tdl->field('TITLE',$taskid,'ID');
 
  
-        $filter=new Tupel();
+        $filter=new TupelFilter();
         $filter['id']=$taskid;
         $res=$tasks->filter($filter);
         $taskname=$res[0]['title'];
-        print '</tr><tr><td>&nbsp;</td><td>'.$taskname.'</td><td>ALL</td><td>'.sectostr($res->sum('spent'),false).'</td>';
+#        $task=$res[0]['l2task'] ? $res[0]['l2task'] : null;
+        print "</tr><tr id='taskrow$taskid'><td>&nbsp;</td><td onmouseover='viewinfo($taskid)'>$taskname</td><td>ALL</td><td>".sectostr($res->sum('spent'),$dmode,$dailytotal["$month.$year"]).'</td>';
 
         for($day=1;$day<=$mdays;$day++) {
             $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
@@ -480,57 +503,39 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
             $dow=date('w',mktime(0,0,0,$month,$day,$year));
             $addclass='';
             if (($dow==0) or ($dow==6)) $addclass='weekend';
-            print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
+            print "<td class='$addclass'>".sectostr($res->sum('spent'),$dmode,$dailytotal["$day.$month.$year"])."</td>";
         }
 
     }
 
     print "</tr>\n";
-
-
-/*        foreach ($project as $task) {
-            print '<tr><td rowspan="'.$task->count().'">'.$task->name."</td><td>SUM</td><td>".$task->tsum()."</td><td colspan='$mdays'></td>\n";
-            $worker=$task['SUM'];
-                print "<tr><td align='right'>".$worker->name."</td><td>".$worker->tsum()."</td>\n";
-                for($day=1;$day<=$mdays;$day++) {
-                        if ($worker["$day.$month.$year"]) {
-                                print "<td>".$worker["$day.$month.$year"]->tsum()."</td>";
-                        } else {
-                                print "<td>00:00</td>";
-                        }
-                }
- 
-            foreach ($task as $worker) {
-                if ($worker->name=='SUM') continue;
-                $sum=$task->summary();
-                print "<tr><td align='right'>".$worker->name."</td><td>".$worker->tsum()."</td>\n";
-                for($day=1;$day<=$mdays;$day++) {
-                        if ($worker["$day.$month.$year"]) {
-                                print "<td>".$worker["$day.$month.$year"]->tsum()."</td>";
-                        } else {
-                                print "<td>00:00</td>";
-                        }
-                }
-                print "</tr>\n";
-            }
-        }
-        #    var_export ($test);
- */
 }
 ?>
 </tbody>
 </table>
-<pre>
+<div id="tasks">
+<table border="1">
 <?php
 
-foreach ($tdl as $task) {
-        print $task->attributes['ID'].' '.$task->attributes['TITLE']."\n";
-        foreach ($task as $subtask) {
-            print '  '.$subtask->attributes['ID'].' '.$subtask->attributes['TITLE']."\n";
-        }
+$keys=$monthtasks->keys('id');
+sort($keys);
+foreach ($keys as $taskid) {
+    print "<tr id='taskhead$taskid' class='task'><th>$taskid</th><th>";
+    if ($task=$tdl->find($taskid)) {
+        print $task->TITLE."</br>(".join(' -&gt; ',$task->parentchain('TITLE')).")</th></tr>";
+        print "<tr id='task1body$taskid'><td></td><td>\n";
+        print "<pre>".$task->COMMENTS."</pre>\n";
+        print "</td></tr>";
+#           foreach ($task as $subtask) {
+#               print '  '.$subtask->attributes['ID'].' '.$subtask->attributes['TITLE']."\n";
+#           }
+    } else {
+        print "---</th></tr>";
+    }
+    print "</div>";
 }
-echo "</PRE>";
-
 ?>
+</table>
+</div>
 </body>
 </html>
