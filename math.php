@@ -10,6 +10,13 @@ interface Comparable {
 }
 
 
+function sectostr($duration,$incsec=true) {
+    $hour=(int)($duration/3600);
+    $min=(int)(($duration % 3600) / 60);
+    $sec=(int)($duration % 60);
+    if ($incsec) return sprintf('%02d:%02d:%02d',$hour,$min,$sec);
+    return sprintf('%02d:%02d',$hour,$min);
+}
 
 # From: http://code.google.com/p/php-calendar/source/browse/trunk/php-calendar/includes/calendar.php
 function day_of_week_start()

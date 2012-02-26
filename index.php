@@ -8,6 +8,49 @@
     $month=2;
     $year=2012;
 
+    $prjnos=array(
+        'K-01-91716066-A1SE' => array('Maintenance for QIP','Process Development'),
+        'K-01-91716023-8000' => array('IT for JOIN 2012','AD/System Infrastructure/ LEME'),
+        'K-01-91716023-7000' => array('IT for JOIN 2012','AD/System Infrastructure/ OTHER'),
+        'K-01-91716023-6000' => array('IT for JOIN 2012','AD/System Infrastructure/ SFPC'),
+        'K-01-91716023-5000' => array('IT for JOIN 2012','AD/System Infrastructure/ LEH'),
+        'K-01-91716023-4000' => array('IT for JOIN 2012','AD/System Infrastructure/ LED'),
+        'K-01-91716023-3000' => array('IT for JOIN 2012','AD/System Infrastructure/ LPTI'),
+        'K-01-91716023-2000' => array('IT for JOIN 2012','AD/System Infrastructure/ LKCA'),
+        'K-01-91716023-1000' => array('IT for JOIN 2012','AD/System Infrastructure/ LBPP'),
+        'K-01-91716022-9500' => array('Wartung ITI 2012','Architektur'),
+        'K-01-91716022-9000' => array('Wartung ITI 2012','div. Applikationen'),
+        'K-01-91716022-7000' => array('Wartung ITI 2012','Site Management'),
+        'K-01-91716022-4500' => array('Wartung ITI 2012','WebServer'),
+        'K-01-91716022-4200' => array('Wartung ITI 2012','WinServer Troubleshooting'),
+        'K-01-91716022-4000' => array('Wartung ITI 2012','WinServer Auf/Abbau Migration'),
+        'K-01-91716022-2000' => array('Wartung ITI 2012','SMS'),
+        'K-01-91715964-A1SE' => array('Riverbed WAN-accelerator','Process Development'),
+        'K-01-91715876-A1SB' => array('Transfer of DNS/DHCP','Process Development'),
+        'K-01-91715721-A1SE' => array('ProCorr New Server','Application Development'),
+        'K-01-91715496-A1SE' => array('Maintenance CFD-server','Application Development'),
+        'K-01-8850ADCT-XBST' => array('Queensland LNG T1','Baustellenbetrieb/-abwicklung'),
+        'K-01-3140AJ7J-A1SD' => array('Novy Urengoy III-OS','Information Technology'),
+        'K-01-3130AGAD-A1SD' => array('AL JUBAIL_08','Information Technology'),
+        'K-01-3110A9NK-A1SD' => array('DAHEJ','Information Technology'),
+        'K-01-2410ACH7-A1SD' => array('SECUNDA-55','Information Technology'),
+        'K-01-2410ACH6-A1SD' => array('SECUNDA-59','Information Technology'),
+        'K-01-1110AEF3-A1SD' => array('REGHAIA','Information Technology'),
+        'K-01-1110A05M-A2SD' => array('Pearl Qatar','Informationstechnik'),
+        'K-01-3110A126-A1SD' => array('Wesseling','Information Technology'),
+        'K-01-3920ABJ5-A1SD' => array('Al Jubail AA','Information Technology'),
+        'K-01-1510AKC7-A1SD' => array('Cilegon','Information Technology'),
+        'K-01-3920A13X-A1SD' => array('Sasolburg_02','Information Technology'),
+        'K-01-2120AEYD-A1SD' => array('SECUNDA-63','Information Technology'),
+        'K-01-8850ADCT-A1SD' => array('Tarragona','Information Technology'),
+        'K-01-3111A2UN-A1SD' => array('El Tablazo','Information Technology'),
+        'K-01-1510AMC3-A1SD' => array('Map Ta Phut','Information Technology'),
+        'K-01-1110A61D-A1SD' => array('Mirfa','Information Technology'),
+        'K-01-3110AB52-A1SD' => array('Ruwais 3','Information Technology')
+#        'K-01--A1SD' => array('Milazzo','Information Technology');
+#        'K-01--A1SD' => array('Temirtau','Information Technology');
+    );
+
     include_once('math.php');
     include_once('interval.php');
     include_once('utf.php');
@@ -17,12 +60,28 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<title>ToDo List Auswertung</title>
+    <title>ToDo List Auswertung</title>
+<style>
+
+table {
+    font-size: small;
+}
+
+.weekend {
+    background:#AAA;
+}
+
+.projectrow {
+    background:#99F;
+}
+</style>
 </head>
 <body>
 	<h1>Das hier ist die Auswertung</h1>
 
-
+<?php
+    print sprintf ('%02d.%04d',$month,$year);
+?>
 <table border="1" size="-1">
 <thead bgcolor="#0000FF" style="color:#FFF;">
 <tr>
@@ -31,11 +90,14 @@
 <th>Total</th>
 <?php
     print "$month,$year -> ".days_in_month($month,$year);
-    for($day=0;$day<=days_in_month($month,$year);$day++) {
+    for($day=1;$day<=days_in_month($month,$year);$day++) {
             $start=mktime(0,0,0,$month,$day,$year);
             $end=mktime(23,59,59,$month,$day,$year);
-#            print "<th>".strftime('%d.%m.%Y %H',$start).'-'.strftime('%d.%m.%Y %H',$end)."</th>\n";
-            print sprintf("<th>%02d %02d.%02d.%4d</th>",$day,$day,$month,$year);
+            #            print "<th>".strftime('%d.%m.%Y %H',$start).'-'.strftime('%d.%m.%Y %H',$end)."</th>\n";
+            $dow=date('w',$start);
+            $addclass='';
+            if (($dow==0) or ($dow==6)) $addclass='weekend';
+            print sprintf("<th class='%s'>%02d.%02d</th>",$addclass,$day,$month);
     }
 ?>
 </tr>
@@ -406,6 +468,12 @@ class MyTree implements ArrayAccess,Iterator {
             return null;
     }
 
+    function field($fieldname,$value,$key='ID') {
+        $obj=$this->find($value,$key);
+        if (is_null($obj)) return;
+        return $obj->attributes[$fieldname];
+    }
+
     public function __get($name) {
         $name=strtoupper($name);
         if (array_key_exists($name, $this->attributes)) {
@@ -655,7 +723,24 @@ for($day=1;$day<=days_in_month($month,$year);$day++) {
 
 ?>
 <?php
+
 $mdays=days_in_month($month,$year);
+
+print "<tr><td>SUM</td><td>&nbsp;</TD><td>&nbsp;</TD><td>&nbsp;</td>";
+/*    print_r($tasks); */
+for($day=1;$day<=$mdays;$day++) {
+    $filter=new Tupel();
+    $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
+
+    $res=$tdl->timetable->filter($filter);
+    
+    $dow=date('w',mktime(0,0,0,$month,$day,$year));
+    $addclass='';
+    if (($dow==0) or ($dow==6)) $addclass='weekend';
+    print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
+}
+print "</tr>";
+
 foreach ($tdl->timetable->keys('externalid') as $projectno) {
 
     $filter=new Tupel();
@@ -663,7 +748,7 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
 
     $tasks=$tdl->timetable->filter($filter);
 
-    print '<tr><td rowspan="">'.$projectno.' ('.count($tasks).') '."</td><td>&nbsp;</td><td>".'ALL'."</td><td>&nbsp;</td>\n";
+    print '<tr class="projectrow"><td><a href="#" onclick="collapse(1)">'.$projectno.' ('.count($tasks).') '."</a></td><td>&nbsp;</td><td>".'ALL'."</td><td>&nbsp;</td>\n";
 
     /*    print_r($tasks); */
     for($day=1;$day<=$mdays;$day++) {
@@ -672,18 +757,30 @@ foreach ($tdl->timetable->keys('externalid') as $projectno) {
 
         $res=$tasks->filter($filter);
 
-        print "<td>".$res->sum('spent')."</td>";
+        $dow=date('w',mktime(0,0,0,$month,$day,$year));
+        $addclass='';
+        if (($dow==0) or ($dow==6)) $addclass='weekend';
+        print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
     }
 
     foreach ($tasks->keys('id') as $taskid) {
-        print '</tr><tr><td>&nbsp;</td><td>'.$taskid.'</td><td>ALL</td><td>&nbsp;</td>';
 
+#        $taskname=$tdl->field('TITLE',$taskid,'ID');
+
+ 
         $filter=new Tupel();
         $filter['id']=$taskid;
+        $res=$tasks->filter($filter);
+        $taskname=$res[0]['title'];
+        print '</tr><tr><td>&nbsp;</td><td>'.$taskname.'</td><td>ALL</td><td>&nbsp;</td>';
+
         for($day=1;$day<=$mdays;$day++) {
             $filter['time']=new Interval(mktime(0,0,0,$month,$day,$year),mktime(23,59,59,$month,$day,$year));
             $res=$tasks->filter($filter);
-            print "<td>".$res->sum('spent')."</td>";
+            $dow=date('w',mktime(0,0,0,$month,$day,$year));
+            $addclass='';
+            if (($dow==0) or ($dow==6)) $addclass='weekend';
+            print "<td class='$addclass'>".sectostr($res->sum('spent'),false)."</td>";
         }
 
     }
