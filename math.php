@@ -11,6 +11,8 @@ interface Comparable {
 
 
 function sectostr($duration,$incsec=true) {
+
+    return sprintf('%02.2f',$duration/3600);
     $hour=(int)($duration/3600);
     $min=(int)(($duration % 3600) / 60);
     $sec=(int)($duration % 60);
