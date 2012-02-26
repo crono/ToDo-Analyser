@@ -2,6 +2,8 @@
     // vim: set ts=4 et nu shiftwidth=4 :vim
     // Work with UTF-8 everywhere
     mb_internal_encoding("UTF-8");
+    header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
+    header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Datum in der Vergangenheit
     header('Content-Type: text/html; charset=UTF-8');
 
 function str_getcsv2($input, $delimiter=',', $enclosure='"', $escape=null, $eol=null) {
@@ -10,9 +12,34 @@ function str_getcsv2($input, $delimiter=',', $enclosure='"', $escape=null, $eol=
 
 
     // For which month should we render the table?
-    $month=isset($_GET['month']) ? (int)$_GET['month'] : 1;
-    $year=isset($_GET['year']) ? (int)$_GET['year'] : 2012;
-    $dmode=isset($_GET['mode']) ? $_GET['mode'] : 'HM';
+    $month=isset($_POST['month']) ? (int)$_POST['month'] : date('m');
+    $year=isset($_POST['year']) ? (int)$_POST['year'] : date('Y');
+    $dmode=isset($_POST['mode']) ? $_POST['mode'] : 'HM';
+
+    $fid=0;
+    if (isset($_FILES['userfile'])):
+    foreach ($_FILES['userfile']['name'] as $fname) {
+        if ($_FILES['userfile']['error'][$fid]==0) {
+            $fname=basename(strtolower($fname));
+            if (substr($fname,-4)=='.tdl') {
+                move_uploaded_file($_FILES['userfile']['tmp_name'][$fid],"data/$fname");
+                $tdlfile=$fname;
+            }
+            if (substr($fname,-4)=='.csv') {
+                move_uploaded_file($_FILES['userfile']['tmp_name'][$fid],"data/$fname");
+                $csvfile=$fname;
+            }
+        }
+        $fid++;
+    }
+    endif ;
+    if (!isset($csvfile)) {
+        $csvfile=isset($_POST['csvfile']) ? basename($_POST['csvfile']) : '';
+    }
+    if (!isset($tdlfile)) {
+        $tdlfile=isset($_POST['tdlfile']) ? basename($_POST['tdlfile']) : '';
+    }
+
 
     $prjnos=array(
         '' => array('UNKNOWN','UNKNOWN'),
@@ -383,7 +410,6 @@ class ToDoList extends MyTree {
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>ToDo List Auswertung</title>
 <style>
-
 table {
     font-size: small;
 }
@@ -403,19 +429,63 @@ function viewinfo ($task) {
 </script>
 </head>
 <body>
+    <h1>Settings</h1>
+    <form method='POST' enctype="multipart/form-data">
+        Monat:<input type="text" name="month" value="<?= $month ?>"></br>
+        Jahr:<input type="text" name="year" value="<?= $year ?>"></br>
+        Modus:<select name="mode">
+                <option value="H,">hour fractional</option>
+                <option value="P">percentage</option>
+                <option value="HM">HH:MM</option>
+                <option value="HMS">HH:MM:SS</option>
+                <option value="S">SSSS</option>
+                <option value="S:S">THIS:TOTAL</option>
+              </select></br>
+        <input type="hidden" name="MAX_FILE_SIZE" value="10000000" />
+        Choose a TDL-file<select name="tdlfile" style="width: 100px" >
+<?php foreach ( glob('data/*.tdl') as $tdl): $fname=basename($tdl); 
+    if ($fname == $tdlfile) : ?>
+        <option value="<?= $fname ?>" selected="selected"><?= $fname ?></option>
+    <? else: ?>
+        <option value="<?= $fname ?>"><?= $fname ?></option>
+    <? 
+    endif;        
+endforeach ?>
+        </select> or upload a new: <input name="userfile[]" type="file"><br>
+        Choose a CSV-file<select name="csvfile" style="width: 100px" >
+                <?php
+foreach ( glob('data/*.csv') as $csv): $fname=basename($csv) ;
+    if ($fname == $csvfile) : ?>
+        <option value="<?= $fname ?>" selected="selected"><?= $fname ?></option>
+    <? else: ?>
+        <option value="<?= $fname ?>"><?= $fname ?></option>
+    <? 
+    endif;        
+endforeach ?>
+              </select> or upload a new: <input name="userfile[]" type="file"><br>
+        <input type="submit" name="enter" value="go...">
+    </form>
+
     <h1>Summary <?php print sprintf('%02d.%04d',$month,$year) ?></h1>
 
 <?php
 echo"<PRE>";
 #print_r(mb_list_encodings());
 
-$tdl = new ToDoList();
-$tdl->readtodo('test/tasks.tdl');
-#$tdl->writetodo('test/new.tdl');
-#
-$tdl->readtimetable('test/tasks_Log.csv');
+if (! (isset($tdlfile) and isset($csvfile))) {
+    die;
+}
+if (! (file_exists('data/'.$tdlfile) and  file_exists('data/'.$csvfile))) {
+    die;
+}
 
+$tdl = new ToDoList();
+$tdl->readtodo('data/'.$tdlfile);
+$tdl->readtimetable('data/'.$csvfile);
+
+#$tdl->writetodo('test/new.tdl');
 # print_r ($tdl->timetable->keys('externalid'));
+
 ?>
 </PRE>
 <table>

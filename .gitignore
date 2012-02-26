@@ -1,2 +1,5 @@
 *~
 *swp
+.htaccess
+.htpasswd
+data/
