@@ -4,6 +4,11 @@
     mb_internal_encoding("UTF-8");
     header('Content-Type: text/html; charset=UTF-8');
 
+function str_getcsv2($input, $delimiter=',', $enclosure='"', $escape=null, $eol=null) {
+    return preg_split("/$delimiter+/",$input);
+}
+
+
     // For which month should we render the table?
     $month=isset($_GET['month']) ? (int)$_GET['month'] : 1;
     $year=isset($_GET['year']) ? (int)$_GET['year'] : 2012;
@@ -267,16 +272,17 @@ class ToDoList extends MyTree {
         $data=file_get_contents($filename);
         $data=mb_convert_encoding($data,'UTF-8',detect_utf_encoding($data));
         $data=substr($data,3);
-        $data = str_getcsv($data, "\n"); //parse the rows
-        foreach($data as &$Row) $Row = str_getcsv($Row, ";"); //parse the items in rows
+        $data = str_getcsv2($data,"\n"); //parse the rows
+        foreach($data as &$Row) $Row = mb_split(";",$Row);#, ";"); //parse the items in rows
         $header=array_shift($data);
 
         $timetable=new TupelList();
         foreach ($data as $row) {
+                if ($row[0]=='') continue;
                 $entry=new Tupel();
                 $entry['id']=$row[0];
-                $entry['who']=$row[3];
-                $entry['start']=strtotime($row[5]);
+                $entry['who']=isset($row[3]) ? $row[3] : print "<h2>FEHLER:-".var_export($row,true)."-</h2>";
+                $entry['start']=isset($row[5]) ? strtotime($row[5]) : print "<h2>FEHLER:-".var_export($row,true)."-</h2>";
                 $entry['end']=strtotime($row[4]);
                 $entry['time']=new Interval(strtotime($row[5]),strtotime($row[4]));
                 $entry['spent']=$entry['end']-$entry['start'];
